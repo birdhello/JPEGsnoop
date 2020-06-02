@@ -1287,7 +1287,7 @@ teRsvRet CimgDecode::ReadScanVal(unsigned nClass,unsigned nTbl,unsigned &rZrl,si
 
 
 
-// Refill the scan buffer as needed
+// Refill the scan buffer as needed 根据需要重新填充扫描缓冲区
 //
 void CimgDecode::BuffTopup()
 {
@@ -1533,9 +1533,6 @@ unsigned CimgDecode::BuffAddByte()
 
 		if (m_nWarnBadScanNum < m_nScanErrMax) {
 			CString strTmp;
-			strTmp.Format(_T("  Scan Data encountered marker   0xFF%02X @ 0x%08X.0"),
-				nMarker,m_nScanBuffPtr);
-			m_pLog->AddLine(strTmp);
 
 			if (nMarker != JFIF_EOI) {
 				m_pLog->AddLineErr(_T("  NOTE: Marker wasn't EOI (0xFFD9)"));
@@ -1639,6 +1636,11 @@ bool CimgDecode::DecodeScanComp(unsigned nTblDhtDc,unsigned nTblDhtAc,unsigned n
 		// Assume nTblDht just points to DC tables, adjust for AC
 		// e.g. nTblDht = 0,2,4
 		eRsvRet = ReadScanVal(bDC?0:1,bDC?nTblDhtDc:nTblDhtAc,nZrl,nVal);
+		CString strTmp;
+		// TODO bird
+		strTmp.Format(_T("%s\t%u \t%u\t%u"), bDC ? "DC" : "AC", nZrl, nVal, m_nScanBitsUsed2);
+		m_pLog->AddLineErr(strTmp);
+
 
 		// Handle Restart marker first.
 		if (eRsvRet == RSV_RST_TERM) {
@@ -1821,6 +1823,7 @@ bool CimgDecode::DecodeScanComp(unsigned nTblDhtDc,unsigned nTblDhtAc,unsigned n
 #else
 
 		// TODO: Select appropriate conversion routine based on performance
+		// 根据性能选择适当的转换例程
 //		DecodeIdctCalcFloat(nDctMax);
 //		DecodeIdctCalcFloat(nNumCoeffs);
 //		DecodeIdctCalcFloat(m_nDctCoefMax);
@@ -2289,6 +2292,9 @@ void CimgDecode::DecodeIdctSet(unsigned nDqtTbl,unsigned num_coeffs,unsigned zrl
 		*/
 
 		m_anDctBlock[nDctInd] = nValUnquant;
+		/*CString strTmp;
+		strTmp.Format(_T("    \t nDctInd: %02u; nValUnquant: %02u"), nDctInd, nValUnquant & 0xff);
+		m_pLog->AddLineErr(strTmp);*/
 
 		// Update max DCT coef # (after unzigzag) so that we can save
 		// some work when performing IDCT.
@@ -2374,6 +2380,7 @@ void CimgDecode::DecodeIdctCalcFloat(unsigned nCoefMax)
 	unsigned	nYX,nVU;
 	float		fSum;
 
+	CString lineStr;
 	for (nYX=0;nYX<DCT_SZ_ALL;nYX++) {
 		fSum = 0;
 
@@ -2387,8 +2394,15 @@ void CimgDecode::DecodeIdctCalcFloat(unsigned nCoefMax)
 		// FIXME: Note that float->int is very slow!
 		//   Should consider using fixed point instead!
 		m_afIdctBlock[nYX] = fSum;
+		CString strTmp;
+		if (nYX % DCT_SZ_X == 0) {
+			lineStr.Append(_T("\n"));
+		}
+		strTmp.Format(_T("%02u\t"), fSum);
+		lineStr.Append(strTmp);
 	}
-
+	m_pLog->AddLineHdr(_T("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"));
+	m_pLog->AddLine(lineStr);
 }
 
 // Fixed point version of DecodeIdctCalcFloat()
@@ -2842,6 +2856,9 @@ void CimgDecode::DecodeScanImg(unsigned nStart,bool bDisplay,bool bQuiet)
 	for (unsigned nComp=1;nComp<=m_nNumSosComps;nComp++) {
 		m_anSampPerMcuH[nComp] = m_anSofSampFactH[nComp];
 		m_anSampPerMcuV[nComp] = m_anSofSampFactV[nComp];
+		strTmp = _T("");
+		strTmp.Format(_T("----------m_anSampPerMcuH------------------ 0x%08X"), m_anSampPerMcuH[nComp]);
+		m_pLog->AddLine(strTmp);
 	}
 
 
@@ -2874,7 +2891,7 @@ void CimgDecode::DecodeScanImg(unsigned nStart,bool bDisplay,bool bQuiet)
 	m_rectImgBase = CRect(CPoint(0,0),CSize(m_nImgSizeX,m_nImgSizeY));
 
 
-	// Determine decoding range
+	// Determine decoding range 确定解码范围
 	unsigned	nDecMcuRowStart;
 	unsigned	nDecMcuRowEnd;		// End to AC scan decoding
 	unsigned	nDecMcuRowEndFinal; // End to general decoding
@@ -2882,12 +2899,12 @@ void CimgDecode::DecodeScanImg(unsigned nStart,bool bDisplay,bool bQuiet)
 	nDecMcuRowEnd = m_nMcuYMax;
 	nDecMcuRowEndFinal = m_nMcuYMax;
 
-	// Limit the decoding range to valid range
+	// Limit the decoding range to valid range 将解码范围限制为有效范围
 	nDecMcuRowEnd = min(nDecMcuRowEnd,m_nMcuYMax);
 	nDecMcuRowEndFinal = min(nDecMcuRowEndFinal,m_nMcuYMax);
 
 
-	// Allocate the MCU File Map
+	// Allocate the MCU File Map 分配MCU文件映射
 	ASSERT(m_pMcuFileMap == NULL);
 	m_pMcuFileMap = new unsigned[m_nMcuYMax*m_nMcuXMax];
 	if (!m_pMcuFileMap) {
@@ -2900,7 +2917,7 @@ void CimgDecode::DecodeScanImg(unsigned nStart,bool bDisplay,bool bQuiet)
 	memset(m_pMcuFileMap, 0, (m_nMcuYMax*m_nMcuXMax*sizeof(unsigned)) );
 
 
-	// Allocate the 8x8 Block DC Map
+	// Allocate the 8x8 Block DC Map 分配8x8块DC地图
 	m_pBlkDcValY  = new short[m_nBlkYMax*m_nBlkXMax];
 	if ( (!m_pBlkDcValY) ) {
 		strTmp = _T("ERROR: Not enough memory for Image Decoder Blk DC Value Map");
@@ -2960,7 +2977,7 @@ void CimgDecode::DecodeScanImg(unsigned nStart,bool bDisplay,bool bQuiet)
 		}
 	}
 
-	// Reset pixel map
+	// Reset pixel map 重置像素映射
 	if (bDisplay) {
 		ClrFullRes(nPixMapW,nPixMapH);
 	}
@@ -2973,6 +2990,7 @@ void CimgDecode::DecodeScanImg(unsigned nStart,bool bDisplay,bool bQuiet)
 	unsigned			nDibImgRowBytes;
 
 	// If a previous bitmap was created, deallocate it and start fresh
+	// 如果创建了以前的位图，释放它并重新开始
 	m_pDibTemp.Kill();
 	m_bDibTempReady = false;
 	m_bPreviewIsJpeg = false;
@@ -3158,7 +3176,7 @@ void CimgDecode::DecodeScanImg(unsigned nStart,bool bDisplay,bool bQuiet)
 
 
 	// -----------------------------------------------------------------------
-	// Process all scan MCUs
+	// Process all scan MCUs 处理所有扫描mcu
 	// -----------------------------------------------------------------------
 
 	for (unsigned nMcuY=nDecMcuRowStart;nMcuY<nDecMcuRowEndFinal;nMcuY++) {
@@ -3262,7 +3280,7 @@ void CimgDecode::DecodeScanImg(unsigned nStart,bool bDisplay,bool bQuiet)
 			// --------------------------------------------------------------
 			nComp = SCAN_COMP_Y;
 
-			// Step through the sampling factors per image component
+			// Step through the sampling factors per image component 步进每个图像组件的采样因子
 			// TODO: Could rewrite this to use single loop across each image component
 			for (nCssIndV=0;nCssIndV<m_anSampPerMcuV[nComp];nCssIndV++) {
 				for (nCssIndH=0;nCssIndH<m_anSampPerMcuH[nComp];nCssIndH++) {

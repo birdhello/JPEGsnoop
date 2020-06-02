@@ -2598,10 +2598,10 @@ unsigned CjfifDecode::DecodeExifIfd(CString strIfd,unsigned nPosExifStart,unsign
 				case 9 : strValOut = _T("Fine weather"); break;
 				case 10 : strValOut = _T("Cloudy weather"); break;
 				case 11 : strValOut = _T("Shade"); break;
-				case 12 : strValOut = _T("Daylight fluorescent (D 5700 – 7100K)"); break;
-				case 13 : strValOut = _T("Day white fluorescent (N 4600 – 5400K)"); break;
-				case 14 : strValOut = _T("Cool white fluorescent (W 3900 – 4500K)"); break;
-				case 15 : strValOut = _T("White fluorescent (WW 3200 – 3700K)"); break;
+				case 12 : strValOut = _T("Daylight fluorescent (D 5700 ?7100K)"); break;
+				case 13 : strValOut = _T("Day white fluorescent (N 4600 ?5400K)"); break;
+				case 14 : strValOut = _T("Cool white fluorescent (W 3900 ?4500K)"); break;
+				case 15 : strValOut = _T("White fluorescent (WW 3200 ?3700K)"); break;
 				case 17 : strValOut = _T("Standard light A"); break;
 				case 18 : strValOut = _T("Standard light B"); break;
 				case 19 : strValOut = _T("Standard light C"); break;
@@ -3803,7 +3803,7 @@ unsigned CjfifDecode::DecodeMarker()
 	// Handle Marker Padding
 	//
 	// According to Section B.1.1.2:
-	//   "Any marker may optionally be preceded by any number of fill bytes, which are bytes assigned code X’FF’."
+	//   "Any marker may optionally be preceded by any number of fill bytes, which are bytes assigned code X’FF?"
 	//
 	unsigned	nSkipMarkerPad = 0;
 	while (nCode == 0xFF) {
@@ -5290,6 +5290,7 @@ unsigned CjfifDecode::DecodeMarker()
 				// Set the primary image details
 				m_pImgDec->SetImageDetails(m_nSofSampsPerLine_X,m_nSofNumLines_Y,
 					m_nSofNumComps_Nf,m_nSosNumCompScan_Ns,m_nImgRstEn,m_nImgRstInterval);
+				m_pLog->AddLineWarn(_T("  --------------------"));
 
 				// Only recalculate the scan decoding if we need to (i.e. file
 				// changed, offset changed, scan option changed)
@@ -7449,83 +7450,6 @@ void CjfifDecode::ProcessFile(CFile* inFile)
 			}
 		}
 	}
-
-	// -----------------------------------------------------------
-	// Perform any other informational calculations that require all tables
-	// to be present.
-
-	// Determine the CSS Ratio
-	// Save the subsampling string. Assume component 2 is representative of the overall chrominance.
-
-	// NOTE: Ensure that we don't execute the following code if we haven't
-	//       completed our read (ie. get bad marker earlier in processing).
-	// TODO: What is the best way to determine all is OK?
-
-	m_strImgQuantCss = _T("?x?");
-	m_strHash = _T("NONE");
-	m_strHashRot = _T("NONE");
-
-	if (m_bImgOK) {
-		ASSERT(m_eImgLandscape!=ENUM_LANDSCAPE_UNSET);
-
-		if (m_nSofNumComps_Nf == NUM_CHAN_YCC) {
-			// We only try to determine the chroma subsampling ratio if we have 3 components (assume YCC)
-			// In general, we should be able to use the 2nd or 3rd component
-		
-			// NOTE: The following assumes m_anSofHorzSampFact_Hi and m_anSofVertSampFact_Vi
-			// are non-zero as otherwise we'll have a divide-by-0 exception.
-			unsigned	nCompIdent = m_anSofQuantCompId[SCAN_COMP_CB];
-			unsigned	nCssFactH = m_nSofHorzSampFactMax_Hmax/m_anSofHorzSampFact_Hi[nCompIdent];
-			unsigned	nCssFactV = m_nSofVertSampFactMax_Vmax/m_anSofVertSampFact_Vi[nCompIdent];
-			if (m_eImgLandscape!=ENUM_LANDSCAPE_NO) {
-				// Landscape orientation
-				m_strImgQuantCss.Format(_T("%ux%u"),nCssFactH,nCssFactV);
-			}
-			else {
-				// Portrait orientation (flip subsampling ratio)
-				m_strImgQuantCss.Format(_T("%ux%u"),nCssFactV,nCssFactH);
-			}
-		} else if (m_nSofNumComps_Nf == NUM_CHAN_GRAYSCALE) {
-			m_strImgQuantCss = _T("Gray");
-		}
-
-		DecodeEmbeddedThumb();
-
-		// Generate the signature
-		PrepareSignature();
-
-		// Compare compression signature
-		if (m_pAppConfig->bSigSearch) {
-			// In the case of lossless files, there won't be any DQT and
-			// hence no compression signatures to compare. Therefore, skip this process.
-			if (m_strHash == _T("NONE")) {
-				m_pLog->AddLineWarn(_T("Skipping compression signature search as no DQT"));
-			} else {
-				CompareSignature();
-			}
-		}
-
-		if (nDataAfterEof > 0) {
-			m_pLog->AddLine(_T(""));
-			m_pLog->AddLineHdr(_T("*** Additional Info ***"));
-			strTmp.Format(_T("NOTE: Data exists after EOF, range: 0x%08X-0x%08X (%u bytes)"),
-				m_nPosEoi,m_nPosFileEnd,nDataAfterEof);
-			m_pLog->AddLine(strTmp);
-		}
-
-		// Print out the special-purpose outputs
-		OutputSpecial();
-	}
-
-
-	// Reset the status bar text
-	if (m_pStatBar) {
-		m_pStatBar->SetPaneText(0,_T("Done"));
-	}
-
-	// Mark the file as closed
-	//m_pWBuf->BufFileUnset();
-
 }
 
 
