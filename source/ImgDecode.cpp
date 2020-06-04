@@ -1214,6 +1214,11 @@ teRsvRet CimgDecode::ReadScanVal(unsigned nClass,unsigned nTbl,unsigned &rZrl,si
 
 	// Did we find the nCode?
 	if (nCode != DHT_CODE_UNUSED) {
+		CString strTmp;
+		// TODO bird
+		strTmp.Format(_T("code: %u\t%d\t%d"), nCode, nCode >> 4, nCode & 0x0F);
+		m_pLog->AddLine(strTmp);
+
 		rZrl = (nCode & 0xF0) >> 4;
 		m_nScanBitsUsed2 = nCode & 0x0F;
 		if ( (rZrl == 0) && (m_nScanBitsUsed2 == 0) ) {
@@ -1638,7 +1643,7 @@ bool CimgDecode::DecodeScanComp(unsigned nTblDhtDc,unsigned nTblDhtAc,unsigned n
 		eRsvRet = ReadScanVal(bDC?0:1,bDC?nTblDhtDc:nTblDhtAc,nZrl,nVal);
 		CString strTmp;
 		// TODO bird
-		strTmp.Format(_T("%s\t%u \t%u\t%u"), bDC ? "DC" : "AC", nZrl, nVal, m_nScanBitsUsed2);
+		strTmp.Format(_T("%s\t%u \t%d\t%u"), bDC ? _T("DC") : _T("AC"), nZrl, nVal, m_nScanBitsUsed2);
 		m_pLog->AddLineErr(strTmp);
 
 
@@ -2292,9 +2297,16 @@ void CimgDecode::DecodeIdctSet(unsigned nDqtTbl,unsigned num_coeffs,unsigned zrl
 		*/
 
 		m_anDctBlock[nDctInd] = nValUnquant;
-		/*CString strTmp;
-		strTmp.Format(_T("    \t nDctInd: %02u; nValUnquant: %02u"), nDctInd, nValUnquant & 0xff);
-		m_pLog->AddLineErr(strTmp);*/
+		CString strTmp;
+		// bird
+		strTmp.Format(_T("index: %d; quantValue: %d; dqtCoff: %d; ind: %d; num_coeffs: %d, zrl: %d"),
+			nDctInd,
+			nValUnquant,
+			m_anDqtCoeffZz[nDqtTbl][ind],
+			ind,
+			num_coeffs,
+			zrl);
+		m_pLog->AddLine(strTmp);
 
 		// Update max DCT coef # (after unzigzag) so that we can save
 		// some work when performing IDCT.
@@ -2398,7 +2410,7 @@ void CimgDecode::DecodeIdctCalcFloat(unsigned nCoefMax)
 		if (nYX % DCT_SZ_X == 0) {
 			lineStr.Append(_T("\n"));
 		}
-		strTmp.Format(_T("%02u\t"), fSum);
+		strTmp.Format(_T("%d\t"), fSum);
 		lineStr.Append(strTmp);
 	}
 	m_pLog->AddLineHdr(_T("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"));
@@ -3130,8 +3142,10 @@ void CimgDecode::DecodeScanImg(unsigned nStart,bool bDisplay,bool bQuiet)
 		// should it ever be used.
 		nDhtTblDcY  = m_anDhtTblSel[DHT_CLASS_DC][COMP_IND_YCC_Y];
 		nDhtTblAcY  = m_anDhtTblSel[DHT_CLASS_AC][COMP_IND_YCC_Y];
+
 		nDhtTblDcCb = m_anDhtTblSel[DHT_CLASS_DC][COMP_IND_YCC_CB];
 		nDhtTblAcCb = m_anDhtTblSel[DHT_CLASS_AC][COMP_IND_YCC_CB];
+
 		nDhtTblDcCr = m_anDhtTblSel[DHT_CLASS_DC][COMP_IND_YCC_CR];
 		nDhtTblAcCr = m_anDhtTblSel[DHT_CLASS_AC][COMP_IND_YCC_CR];
 #ifdef DEBUG_YCCK
